@@ -22,8 +22,7 @@ function banish_system_info_alter(&$info, &$project, &$type) {
     //$project = null;
 
     // Hidden only hides the module from the UI, but it can still be enabled via code / drush.
-    // TODO: Add an option to enable this so you can actually hide the modules from the ui as well.
-    //$info['hidden'] = true;
+    $info['hidden'] = true;
 
     // This is effective, but if the module is already enabled it doesn't disable and if
     // drush is used it actually tried to download this module from drupal.org.
@@ -48,17 +47,61 @@ function banished_registry_files_alter(&$files, $modules) {
 
 function banish_get_banished() {
   $banish= &drupal_static(__FUNCTION__);
-  if (!isset($banish)) {
+
+  if (isset($banish)) {
+    return $banish;
+  }
+  if ($cache = cache_get('banish')) {
+    $banish = $cache->data;
+  }
+  else{
+    xdebug_break();
     $info_array = system_get_info('module');
     $banish_arrays = array();
-    dpm($info_array);
+    //dpm($info_array);
     foreach ($info_array as $module => $info) {
       if (isset($info['banish'])) {
         $banish_arrays[] = $info['banish'];
       }
     }
     $banish = drupal_array_merge_deep_array($banish_arrays);
-    dpm($banish);
+    cache_set('banish', $banish);
   }
   return $banish;
+}
+
+function banish_boot() {
+  drupal_register_shutdown_function('_banish_disable_projects');
+}
+
+function _banish_disable_projects() {
+  if ($banished = banish_get_banished()) {
+    //dd($banished);
+
+    // Disable and uninstall modules.
+    if (isset($banished['module'])) {
+      $enabled_modules = module_list();
+      foreach ($banished['module'] as $module) {
+        if (in_array($module, $enabled_modules)) {
+          // TODO: Handle situations with module dependencies that are
+          // not banished, or maybe just set a 'conflict' state?.
+          module_disable(array($module));
+          $result = drupal_uninstall_modules(array($module));
+          watchdog('banish', "%name module disabled and uninstalled by banish.", array('%name' => $module));
+        }
+      }
+    }
+
+    // Disable themes.
+    if (isset($banished['theme'])) {
+      $enabled_themes = list_themes();
+      foreach ($banished['theme'] as $theme) {
+        if (in_array($theme, $enabled_themes)) {
+          // Note that theme_disable() helpfully prevents disabling the default theme.
+          theme_disable(array($theme));
+          watchdog('banish', "%name theme disabled by banish.", array('%name' => $theme));
+        }
+      }
+    }
+  }
 }
