@@ -1,0 +1,64 @@
+<?php
+
+/**
+ * Implements hook_system_info_alter().
+ */
+function banish_system_info_alter(&$info, &$project, &$type) {
+
+  $banished = &banish_get_banished();
+
+
+  if (isset($banished[$type]) && in_array($project->name, $banished[$type])) {
+    dpm($project, "banishing..");
+    // Doesn't work to unset it because we only unset the local reference
+    // In a perfect world, the alter would be an additional check for 'disabled
+    // modules after the alter in _system_rebuild_module_data().
+    // unset($module, $info, $type );
+
+    // This gives errors on registry rebuild because it's missing filename.
+    //$project = new stdClass();
+
+    // Same issue with this and array();
+    //$project = null;
+
+    // Hidden only hides the module from the UI, but it can still be enabled via code / drush.
+    // TODO: Add an option to enable this so you can actually hide the modules from the ui as well.
+    //$info['hidden'] = true;
+
+    // This is effective, but if the module is already enabled it doesn't disable and if
+    // drush is used it actually tried to download this module from drupal.org.
+    // $info['dependencies'][] = 'this_module_has_been_banished';
+
+    // Also effective, but doesn't disable modules. Also gives unclean messages like
+    // "This version is not compatible with Drupal 7.x and should be replaced." in the module UI
+    $info['core'] = "this_module_has_been_banished";
+    if ($type = 'module') {
+      $info['package'] = "Banished";
+    }
+    dpm($project->name);
+
+
+  }
+  //dpm($project->name);
+}
+
+function banished_registry_files_alter(&$files, $modules) {
+  dpm($files, 'registry_files');
+}
+
+function banish_get_banished() {
+  $banish= &drupal_static(__FUNCTION__);
+  if (!isset($banish)) {
+    $info_array = system_get_info('module');
+    $banish_arrays = array();
+    dpm($info_array);
+    foreach ($info_array as $module => $info) {
+      if (isset($info['banish'])) {
+        $banish_arrays[] = $info['banish'];
+      }
+    }
+    $banish = drupal_array_merge_deep_array($banish_arrays);
+    dpm($banish);
+  }
+  return $banish;
+}
