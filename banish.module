@@ -106,3 +106,19 @@ function _banish_disable_projects() {
     }
   }
 }
+
+/**
+ * Implements hook_menu_alter().
+ */
+function banish_menu_alter(&$items) {
+  $banished = banish_get_banished();
+  dpm($items);
+
+  if(isset($banished['menu']) && is_array($banished['menu'])) {
+    foreach($banished['menu'] as $menu_item) {
+      if (isset($items[$menu_item])) {
+        unset($items[$menu_item]);
+      }
+    }
+  }
+}
