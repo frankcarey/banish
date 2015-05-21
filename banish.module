@@ -9,7 +9,7 @@ function banish_system_info_alter(&$info, &$project, &$type) {
 
   if (isset($banished[$type]) && in_array($project->name, $banished[$type])) {
     // Doesn't work to unset it because we only unset the local reference
-    // In a perfect world, the alter would be an additional check for 'disabled
+    // In a perfect world, there would an additional check for disabled
     // modules after the alter in _system_rebuild_module_data().
     // unset($module, $info, $type );
 
